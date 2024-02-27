@@ -5,7 +5,7 @@ import math
 
 
 # Creates the kernels
-def getKernels(size, sigma = 1):
+def getGaussianKernels(size, sigma = 1):
     kernel = [[0] * size for _ in range(size)]
     center = size // 2
 
@@ -21,6 +21,28 @@ def getKernels(size, sigma = 1):
             kernel[x][y] /= total
 
     print(kernel)
+
+    return kernel
+
+
+
+def ridgeDetectionKernel(size):
+    if size % 2 == 0:
+        raise ValueError("Kernel size must be odd.")
+
+    # Create the ridge detection kernel
+    kernel = [[0] * size for _ in range(size)]
+    center = size // 2
+
+    # Emphasize vertical edges
+    for x in range(size):
+        for y in range(size):
+            if y == center:
+                kernel[x][y] = -1
+            elif x == center:
+                kernel[x][y] = -1
+
+    kernel[center][center] = 2
 
     return kernel
 
@@ -77,7 +99,7 @@ def gaussianBlur(image, kernel):
             sum = 0
 
             # center
-            sum =  sum + (kernel[kernel_center][kernel_center] * image[row][col])
+            sum += (kernel[kernel_center][kernel_center] * image[row][col])
 
             # check down
             if((row + 1) >= len(image)):
@@ -88,7 +110,7 @@ def gaussianBlur(image, kernel):
                         down = i
                         break
                 for i in range(down):
-                    sum = sum + (kernel[kernel_center + i + 1][kernel_center] * image[row + i + 1][col])
+                    sum += (kernel[kernel_center + i + 1][kernel_center] * image[row + i + 1][col])
                 
 
             # check up
@@ -100,7 +122,7 @@ def gaussianBlur(image, kernel):
                         up = i
                         break
                 for i in range(up):
-                    sum = sum + (kernel[kernel_center - i - 1][kernel_center] * image[row - i - 1][col])
+                    sum += (kernel[kernel_center - i - 1][kernel_center] * image[row - i - 1][col])
 
 
             # check right
@@ -112,7 +134,7 @@ def gaussianBlur(image, kernel):
                         right = i
                         break
                 for i in range(right):
-                    sum = sum + (kernel[kernel_center][kernel_center + i + 1] * image[row][col + i + 1])
+                    sum += (kernel[kernel_center][kernel_center + i + 1] * image[row][col + i + 1])
 
 
             # check left
@@ -124,43 +146,47 @@ def gaussianBlur(image, kernel):
                         left = i
                         break
                 for i in range(left):
-                    sum = sum + (kernel[kernel_center][kernel_center - i - 1] * image[row][col - i - 1])
+                    sum += (kernel[kernel_center][kernel_center - i - 1] * image[row][col - i - 1])
 
 
             #bottom right square 
             if (down > 0) and (right > 0):
                 for i in range(down):
                     for j in range(right):
-                        sum = sum + (kernel[kernel_center + i + 1][kernel_center + j + 1] * image[row + i + 1][col + j + 1])
+                        sum += (kernel[kernel_center + i + 1][kernel_center + j + 1] * image[row + i + 1][col + j + 1])
 
 
             #bottom left square 
             if (down > 0) and (left > 0):
                 for i in range(down):
                     for j in range(left):
-                        sum = sum + (kernel[kernel_center + i + 1][kernel_center - j - 1] * image[row + i + 1][col - j - 1])
+                        sum += (kernel[kernel_center + i + 1][kernel_center - j - 1] * image[row + i + 1][col - j - 1])
 
 
             #top right square 
             if (up > 0) and (right > 0):
                 for i in range(up):
                     for j in range(right):
-                        sum = sum + (kernel[kernel_center - i - 1][kernel_center + j + 1] * image[row - i - 1][col + j + 1])
+                        sum += (kernel[kernel_center - i - 1][kernel_center + j + 1] * image[row - i - 1][col + j + 1])
 
 
             #top left square 
             if (up > 0) and (left > 0):
                 for i in range(up):
                     for j in range(left):
-                        sum = sum + (kernel[kernel_center - i - 1][kernel_center - j - 1] * image[row - i - 1][col - j - 1])
+                        sum += (kernel[kernel_center - i - 1][kernel_center - j - 1] * image[row - i - 1][col - j - 1])
 
 
             
             new_row.append(sum) # per column
+            del sum
+
             print("pixel " + str(row) + " " + str(col) + " complete")
 
 
         new_image.append(new_row) # per row
+        del new_row
+
 
     return new_image
 
@@ -189,7 +215,6 @@ def buildImage(pixel_values, dimension, original_image, bw_image):
 
 if __name__ == '__main__':
 
-    
     test_image = []
     for i in range(256):
         test_image_row = []
@@ -201,9 +226,11 @@ if __name__ == '__main__':
 
 
     # grabs images
-    image_info = importImages('cameraman.jpg')
+    image_info = importImages('barb_noisy.jpg')
 
-    image_info['kernel'] = getKernels(11, 1)
+    image_info['kernel'] = getGaussianKernels(5, 1)
+
+
 
     # image_info['kernel'] = [[0.003663003663003663, 0.014652014652014652, 0.02564102564102564, 0.014652014652014652, 0.003663003663003663], [0.014652014652014652, 0.05860805860805861, 0.09523809523809523, 0.05860805860805861, 0.014652014652014652], [0.02564102564102564, 0.09523809523809523, 0.15018315018315018, 0.09523809523809523, 0.02564102564102564], [0.003663003663003663, 0.014652014652014652, 0.02564102564102564, 0.014652014652014652, 0.003663003663003663], [0.014652014652014652, 0.05860805860805861, 0.09523809523809523, 0.05860805860805861, 0.014652014652014652]]
     # image_info['kernel'] = [[0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612], [0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612], [0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612], [0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612], [0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612], [0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612], [0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612, 0.02040816326530612]]
@@ -220,6 +247,4 @@ if __name__ == '__main__':
 
 
 
-
-#bulding the image
 
