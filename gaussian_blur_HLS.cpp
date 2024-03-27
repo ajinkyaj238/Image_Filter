@@ -1,33 +1,32 @@
-#include <fstream>
-#include <string>
-#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define size 512 //size of the image
+#define kernel_size 5 // size of the kernel
 
-#include "ap_axi_sdata.h"
-#include "hls_stream.h"
-
-using namespace std;
-
-#define M 256
-#define K 5
-
-void gaussianBlur(hls::stream< ap_axis<32, 2, 5, 6> >&image[M][M], hls::stream< ap_axis<32,2,5,6> >kernel[K][K])
+void gaussianBlur(
+		volatile int *image,
+		volatile int *kernel,
+		volatile int *newimage
+)
 {
 
-    ap_axis<32, 2, 5, 6> tmp;
+	#pragma HLS INTERFACE m_axi port = image offset = slave bundle = image_port
+	#pragma HLS INTERFACE m_axi port = kernel offset = slave bundle = kernel_port
+	#pragma HLS INTERFACE m_axi port = newimage offset = slave bundle = newimage_port
+	#pragma HLS INTERFACE s_axilite port = return bundle = CONTROL_BUS
 
-    #pragma HLS INTERFACE axis port=A
-    #pragma HLS INTERFACE axis port=B
-    #pragma HLS INTERFACE s_axilite port=return
-    #pragma HLS INTERFACE axis port=s_out
+	int image_buff[size][size];
+	int kernel_buff[kernel_size][kernel_size];
+	int newimage_buff[size][size];
 
 
-    int down, up, right, left, kernel_center, sum; 
+	memcpy(&image_buff[0][0], const_cast<int*>(image), sizeof(int) * size * size);
+	memcpy(&kernel_buff[0][0], const_cast<int*>(kernel), sizeof(int) * kernel_size * kernel_size);
 
-    int **new_image; 
-    new_image = new int*[size];
-    for (int i = 0; i < size; ++i) {
-        new_image[i] = new int[size];
-    }
+
+    int down, up, right, left, kernel_center, sum;  
+
 
     down = up = right = left = sum = 0; 
 
@@ -40,7 +39,7 @@ void gaussianBlur(hls::stream< ap_axis<32, 2, 5, 6> >&image[M][M], hls::stream< 
         for(int col = 0; col < size; col++)
         {
             
-            sum += (kernel[kernel_center][kernel_center] * image[row][col]);
+            sum += (kernel_buff[kernel_center][kernel_center] * image_buff[row][col]);
 
             //check down
             if(row + 1 >= size)
@@ -59,7 +58,7 @@ void gaussianBlur(hls::stream< ap_axis<32, 2, 5, 6> >&image[M][M], hls::stream< 
                 }
                 for(int i = 0; i < down; i++)
                 {
-                    sum += (kernel[kernel_center + i + 1][kernel_center] * image[row + i + 1][col]);
+                    sum += (kernel_buff[kernel_center + i + 1][kernel_center] * image_buff[row + i + 1][col]);
                 }
             }
 
@@ -81,7 +80,7 @@ void gaussianBlur(hls::stream< ap_axis<32, 2, 5, 6> >&image[M][M], hls::stream< 
                 }
                 for(int i = 0; i < up; i++)
                 {
-                    sum += (kernel[kernel_center - i - 1][kernel_center] * image[row - i - 1][col]);
+                    sum += (kernel_buff[kernel_center - i - 1][kernel_center] * image_buff[row - i - 1][col]);
                 }
             }
 
@@ -103,7 +102,7 @@ void gaussianBlur(hls::stream< ap_axis<32, 2, 5, 6> >&image[M][M], hls::stream< 
                 }
                 for(int i = 0; i < right; i++)
                 {
-                    sum += (kernel[kernel_center][kernel_center + i + 1] * image[row][col + i + 1]);
+                    sum += (kernel_buff[kernel_center][kernel_center + i + 1] * image_buff[row][col + i + 1]);
                 }
             }            
 
@@ -125,7 +124,7 @@ void gaussianBlur(hls::stream< ap_axis<32, 2, 5, 6> >&image[M][M], hls::stream< 
                 }
                 for(int i = 0; i < left; i++)
                 {
-                    sum += (kernel[kernel_center][kernel_center + i + 1] * image[row][col + i + 1]);
+                    sum += (kernel_buff[kernel_center][kernel_center + i + 1] * image_buff[row][col + i + 1]);
                 }
             }
 
@@ -133,69 +132,61 @@ void gaussianBlur(hls::stream< ap_axis<32, 2, 5, 6> >&image[M][M], hls::stream< 
             // bottom right square 
             if ((down > 0) && (right > 0))
             {
-                for(int br_h = 0; br_h < down; br_h++)
+                for(int i = 0; i < down; i++)
                 {
-                    for(int br_w = 0; br_w < right; br_w++)
+                    for(int j = 0; j < right; j++)
                     {
-                        sum += (kernel[kernel_center + br_h + 1][kernel_center + br_w + 1] * image[row + br_h + 1][col + br_w + 1]);
+                        sum += (kernel_buff[kernel_center + i + 1][kernel_center + j + 1] * image_buff[row + i + 1][col + j + 1]);
                     }
                 }
             }
 
 
-            // bottom left square (different variable loops are used for loop fission)
+            // bottom left square
             if ((down > 0) && (left > 0))
             {
-                for(int bl_h = 0; bl_h < down; bl_h++)
+                for(int i = 0; i < down; i++)
                 {
-                    for(int bl_w = 0; bl_w < left; bl_w++)
+                    for(int j = 0; j < left; j++)
                     {
-                        sum += (kernel[kernel_center + bl_h + 1][kernel_center - bl_w - 1] * image[row + bl_h + 1][col - bl_w - 1]);
+                        sum += (kernel_buff[kernel_center + i + 1][kernel_center - j - 1] * image_buff[row + i + 1][col - j - 1]);
                     }
                 }
             }
 
 
-            // top right square (different variable loops are used for loop fission)
+            // top right square
             if ((up > 0) && (right > 0))
             {
-                for(int tr_h = 0; tr_h < up; tr_h++)
+                for(int i = 0; i < up; i++)
                 {
-                    for(int tr_w = 0; tr_w < right; tr_w++)
+                    for(int j = 0; j < right; j++)
                     {
-                        sum += (kernel[kernel_center - tr_h - 1][kernel_center + tr_w + 1] * image[row - tr_h - 1][col + tr_w + 1]);
+                        sum += (kernel_buff[kernel_center - i - 1][kernel_center + j + 1] * image_buff[row - i - 1][col + j + 1]);
                     }
                 }
             }
 
 
-            // top left square (different variable loops are used for loop fission)
+            // top left square
             if ((up > 0) && (left > 0))
             {
-                for(int tl_h = 0; tl_h < up; tl_h++)
+                for(int i = 0; i < up; i++)
                 {
-                    for(int tl_w = 0; tl_w < left; tl_w++)
+                    for(int j = 0; j < left; j++)
                     {
-                        sum += (kernel[kernel_center - tl_h - 1][kernel_center - tl_w - 1] * image[row - tl_h - 1][col - tl_w - 1]);
+                        sum += (kernel_buff[kernel_center - i - 1][kernel_center - j - 1] * image_buff[row - i - 1][col - j - 1]);
                     }
                 }
             }
 
+            newimage_buff[row][col] = sum;
+            sum = 0;
 
-
-
-            new_image[row][col] = sum;
-            sum = 0; 
         } 
-    }    
-
-    for(int i = 0; i < size; i++ )
-    {
-        for(int j = 0; j < size; j++)
-        {
-            image[i][j] = new_image[i][j];   
-        }
     }
+
+    memcpy(const_cast<int*>(newimage), const_cast<int*>(&newimage_buff[0][0]), sizeof(int) * size * size);
 
 
 }
