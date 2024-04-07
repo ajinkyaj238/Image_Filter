@@ -1,1 +1,2 @@
-These are all the HLS streaming files I have created
+- gaussian_blur_stream.cpp: only does window to window operations with a 5x5 gaussian kernel preloaded
+- gb_full.cpp: does end to end gaussian blur
