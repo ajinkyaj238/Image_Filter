@@ -1,0 +1,1 @@
+Optimized streaming code to reduce BRAM usage. Was able to synthesize in vitis and was able to gereate bitstream as well. 
