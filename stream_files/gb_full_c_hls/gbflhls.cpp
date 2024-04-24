@@ -24,9 +24,9 @@ void gaussianBlur(hls::stream<std_axi>&img, hls::stream<std_axi>&out_pix)
 
 
 
-    int down, up, right, left, kernel_center, writeback_row, writeback; 
-    float sum; 
-    down = up = right = left = sum = writeback_row = 0; 
+    int down, up, right, left, kernel_center, writeback_row, writeback;
+    float sum;
+    down = up = right = left = sum = writeback_row = 0;
     kernel_center = ((WINDOW_SIZE) - 1) / 2;
 
     float kernel[WINDOW_SIZE][WINDOW_SIZE] = {
@@ -55,7 +55,7 @@ void gaussianBlur(hls::stream<std_axi>&img, hls::stream<std_axi>&out_pix)
 
     // will be a writeback array
     //creates a new image array with all values as 0 
-    uint8_t new_image[WINDOW_SIZE + kernel_center][SIZE]; // the size for a 5x5 kernel will be 7x512 
+    uint8_t new_image[WINDOW_SIZE + kernel_center][SIZE]; // the size for a 5x5 kernel will be 7x512
 
 
 
@@ -65,6 +65,7 @@ void gaussianBlur(hls::stream<std_axi>&img, hls::stream<std_axi>&out_pix)
         for(int col = 0; col < (SIZE); col++)
         {
 
+#pragma HLS PIPELINE off
 
 
             //center
@@ -245,9 +246,9 @@ void gaussianBlur(hls::stream<std_axi>&img, hls::stream<std_axi>&out_pix)
             // when the last index has been reached so that would be writeback_row = 6, col = 511
             if( ((writeback_row == (WINDOW_SIZE + kernel_center) - 1) && (col == SIZE - 1)) || (row == SIZE - 1) && (col == SIZE - 1) )
             {
-                writeback_row = kernel_center; 
+                writeback_row = kernel_center;
 
-                // determines the starting row to iterate by. 
+                // determines the starting row to iterate by.
                 writeback = row - WINDOW_SIZE;
                 for(int i  = 0; i < WINDOW_SIZE; i++)
                 {
@@ -255,7 +256,7 @@ void gaussianBlur(hls::stream<std_axi>&img, hls::stream<std_axi>&out_pix)
                     {
                         image[writeback][j] = new_image[i][j];
                     }
-                    writeback++; 
+                    writeback++;
                 }
 
 
@@ -266,30 +267,27 @@ void gaussianBlur(hls::stream<std_axi>&img, hls::stream<std_axi>&out_pix)
                     {
                         new_image[i][j] = new_image[i+WINDOW_SIZE][j];
                     }
-                    writeback++; 
+                    writeback++;
                 }
 
-                
+
             }
 
 
 
         }
-        
-        writeback_row++; 
+
+        writeback_row++;
     }
 
 
 
-
-    // simulating output stream
+    // complete output streaming
     for(int i = 0; i<SIZE; i++)
 	{
 		for(int j = 0; j<SIZE; j++)
 		{
-			int curr = (i * (SIZE) + j);
-            
-            tmp.data = (int)new_image[i][j];
+            tmp.data = (int)image[i][j];
             out_pix.write(tmp);
 		}
 	}
