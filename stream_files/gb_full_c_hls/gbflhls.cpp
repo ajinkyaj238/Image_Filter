@@ -23,6 +23,12 @@ void gaussianBlur(hls::stream<std_axi>&img, hls::stream<std_axi>&out_pix)
 #pragma hls interface s_axilite port=return
 
 
+
+    int down, up, right, left, kernel_center, writeback_row, writeback; 
+    float sum; 
+    down = up = right = left = sum = writeback_row = 0; 
+    kernel_center = ((WINDOW_SIZE) - 1) / 2;
+
     float kernel[WINDOW_SIZE][WINDOW_SIZE] = {
         {0.002969016743950497, 0.013306209891013651, 0.021938231279714643, 0.013306209891013651, 0.002969016743950497},
         {0.013306209891013651, 0.05963429543618014, 0.09832033134884577, 0.05963429543618014, 0.013306209891013651}, 
@@ -47,26 +53,9 @@ void gaussianBlur(hls::stream<std_axi>&img, hls::stream<std_axi>&out_pix)
 	}
 
 
-
+    // will be a writeback array
     //creates a new image array with all values as 0 
-    uint8_t new_image[SIZE][SIZE]; 
-    for(int i = 0; i < SIZE; i++)
-    {
-        for(int j =0; j < SIZE; j++)
-        {
-            new_image[i][j] = 0; 
-        }
-    } 
-
-
-
-
-
-    int down, up, right, left, kernel_center; 
-    float sum; 
-    down = up = right = left = sum = 0; 
-    kernel_center = ((WINDOW_SIZE) - 1) / 2;
-
+    uint8_t new_image[WINDOW_SIZE + kernel_center][SIZE]; // the size for a 5x5 kernel will be 7x512 
 
 
 
@@ -246,11 +235,48 @@ void gaussianBlur(hls::stream<std_axi>&img, hls::stream<std_axi>&out_pix)
 
 
 
-            new_image[row][col] = (uint8_t)sum;
+
+
+
+            new_image[writeback_row][col] = (int8_t)sum;
             sum = 0; 
 
 
+            // when the last index has been reached so that would be writeback_row = 6, col = 511
+            if( ((writeback_row == (WINDOW_SIZE + kernel_center) - 1) && (col == SIZE - 1)) || (row == SIZE - 1) && (col == SIZE - 1) )
+            {
+                writeback_row = kernel_center; 
+
+                // determines the starting row to iterate by. 
+                writeback = row - WINDOW_SIZE;
+                for(int i  = 0; i < WINDOW_SIZE; i++)
+                {
+                    for(int j = 0; j < SIZE; j++)
+                    {
+                        image[writeback][j] = new_image[i][j];
+                    }
+                    writeback++; 
+                }
+
+
+                //shifting last two rows up
+                for(int i  = 0; i < kernel_center; i++)
+                {
+                    for(int j = 0; j < SIZE; j++)
+                    {
+                        new_image[i][j] = new_image[i+WINDOW_SIZE][j];
+                    }
+                    writeback++; 
+                }
+
+                
+            }
+
+
+
         }
+        
+        writeback_row++; 
     }
 
 
